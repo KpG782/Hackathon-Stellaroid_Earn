@@ -143,7 +143,7 @@ export default async function StatusPage() {
               {appConfig.contractId ? shortenAddress(appConfig.contractId, 8) : "Not configured"}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-text-muted">
-              Current contract ID is linked here. RPC health is checked by the app.
+              Current contract ID is linked here. Active RPC: {health.checks.rpc.providerName}.
             </p>
             <a
               href={contractUrl}
@@ -166,6 +166,8 @@ export default async function StatusPage() {
               <CheckRow label="Config" detail={health.checks.config.detail} ok={health.checks.config.ok} />
               <CheckRow label="RPC" detail={health.checks.rpc.detail} ok={health.checks.rpc.ok} />
               <CheckRow label="Contract config" detail={health.checks.contract.detail} ok={health.checks.contract.ok} />
+              <CheckRow label="PHP quote" detail={health.checks.quote.detail} ok={health.checks.quote.ok} />
+              <CheckRow label="PDAX" detail={health.checks.pdax.detail} ok={health.checks.pdax.ok} />
             </div>
             <p className="mt-4 flex items-center gap-2 text-xs text-text-muted">
               <Clock3 className="size-3.5" aria-hidden="true" />

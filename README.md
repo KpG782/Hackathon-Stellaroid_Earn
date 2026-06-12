@@ -52,6 +52,26 @@ The bootcamp/event submission is complete. Stellaroid Earn is now maintained as 
 
 ---
 
+## How It Works  - In Plain Words
+
+The same three-step loop serves every market ([full positioning & market kit](docs/POSITIONING.md)):
+
+1. **Issue**  - A school or agency clicks "issue." The graduate gets a link + QR; a fingerprint of the certificate is sealed into a public ledger no one  - not even us  - can edit. Like a wax seal in a public book.
+2. **Verify**  - Anyone with the QR or link checks it in seconds: *real, issued by X, not revoked.* No account, no phone call  - and it works offline, re-confirming on-chain when connectivity returns.
+3. **Pay**  - The part nobody else does: a payout link unlocks **only** for the person whose credential verifies, wallet-to-wallet. We are the GPS, never the taxi  - money never passes through us.
+
+| Market | What the loop replaces |
+|---|---|
+| **EdTech** *(entry)* | Verification emails to schools; fakeable PDF certificates |
+| **HR / employers** *(buyer)* | Days-long background checks; trust + first payment become one motion |
+| **Civic** *(scale)* | Certified true copies, apostille queues, fixers  - offline verify works in any barangay |
+| **Health** *(later, partner-led)* | Months of overseas license verification for the world's top nurse exporter |
+| **AI agents** *(tailwind)* | Machine-readable credentials let an AI recruiter verify  - and pay  - against the rail; we never let AI judge skill |
+
+**Category:** workforce trust infrastructure (EdTech × HR tech × fintech). **Honest scope:** Stellaroid verifies credentials issued through the rail  - coverage grows as issuers adopt; it cannot validate legacy paper never anchored.
+
+---
+
 ## Feature Gallery
 
 <table>
