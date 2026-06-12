@@ -32,6 +32,20 @@ Competitive intel from the PH leg (May 23, 2026, Demo Day at PDAX HQ): grand pri
 
 **Verdict:** the 6-week scope is justified for the hackathon and the thesis survives senior scrutiny *if framed as "the trust-and-payment rail for an AI-era labor market."* The hackathon is the cheapest possible test of the riskiest assumption (issuer/employer demand).
 
+### Category & market positioning
+
+Stellaroid is not edtech, legal tech, civic tech, or health tech alone — those are verticals it serves. The correct primary label is **workforce trust infrastructure**: verifiable-credential rails at the intersection of EdTech (issuance) × HR tech (verification) × fintech (payout). Hackathon track entry: **digital wallets & identity tools**, secondary fiat on/off-ramps.
+
+| Vertical | Role | Market signal (2025–26 reports) |
+|---|---|---|
+| **EdTech** | Entry wedge — bootcamps/MOOCs/vocational certs issue | Alternative credentials $18.8B → $69.9B by 2034 (18.6% CAGR); micro-credential courses $5.5B → $15B; digital badges $370M → $1.2B; credential-mgmt software $2.1B → $7.8B |
+| **HR / work tech** | The buyer — employers verify + pay | Background checks $5.8B → $16.1B by 2034; education/employment verification is ~25–28% of screening and its fastest-growing slice; credential-discrepancy rates +44% (AuthBridge 2024). Problem size: ~$21B global academic-fraud ecosystem |
+| **Civic tech / DPI** | Expansion — TESDA/PRC-style public credentials; offline verify fits rural delivery | Digital-public-infrastructure wave (PhilSys-adjacent); no near-term revenue, big distribution |
+| **Health tech** | Highest-value later vertical — overseas nurse/health-worker credentialing (PH = top nurse exporter); our offline QR pattern is literally the EU health-pass pattern | Regulated; enter only with partners |
+| **Legal tech** | Weakest fit — apostille/notarization friction touchpoint only; do not claim this lane | — |
+
+**Beachhead:** PH cross-border skills work — 1.5M+ active freelancers, 6th fastest-growing gig market, IT-BPM $38B/1.82M jobs — where a verified credential unlocking a stablecoin payout solves both trust and payment in one motion. Demand-side tailwind: 96% of employers say micro-credentials strengthen applications; 90% would pay more for holders. Pitch sizing discipline: quote these as third-party estimates, never invented precision.
+
 ## 3. Pillar 1 — Offline-first PWA with two-party offline verification ("Job Fair Mode")
 
 Extends the P2-1 Serwist plan into a demoable, novel loop. AbotPera proved offline *payments*; nobody shipped offline *trust*.
