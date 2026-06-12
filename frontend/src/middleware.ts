@@ -51,7 +51,9 @@ export const config = {
   matcher: [
     {
       source:
-        "/((?!_next/static|_next/image|favicon.ico|favicon-48.png|favicon.png|apple-touch-icon.png|logo.svg|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|map)$).*)",
+        // sw.js stays excluded: a CSP header on the worker script would govern
+        // the worker's own fetches (connect-src would block runtime caching).
+        "/((?!_next/static|_next/image|favicon.ico|favicon-48.png|favicon.png|apple-touch-icon.png|logo.svg|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|map)$).*)",
     },
   ],
 };

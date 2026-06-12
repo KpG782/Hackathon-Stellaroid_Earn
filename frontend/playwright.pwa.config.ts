@@ -1,28 +1,29 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 3007;
+const PORT = 3008;
 const baseURL = `http://127.0.0.1:${PORT}`;
 const E2E_READ_ADDRESS =
   "GAWIOVGFSPJDEIJJZUSVRFPVP3D5VNO2LGCU47KEHJD6MV277QKNR34D";
 
+// The service worker is disabled under `next dev`, so PWA tests run against a
+// production build. Kept separate from playwright.config.ts to keep the fast
+// dev-server suite fast.
 export default defineConfig({
   testDir: "./e2e",
-  // PWA tests need a production build (SW disabled in dev); they run via
-  // playwright.pwa.config.ts (`npm run test:e2e:pwa`).
-  testIgnore: /pwa\.spec\.ts/,
-  fullyParallel: true,
+  testMatch: /pwa\.spec\.ts/,
+  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
+  retries: 0,
   reporter: "list",
   use: {
     baseURL,
     trace: "on-first-retry",
   },
   webServer: {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${PORT}`,
+    command: `npm run build && npm run start -- --hostname 127.0.0.1 --port ${PORT}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 300_000,
     env: {
       NEXT_PUBLIC_E2E_MODE: "1",
       NEXT_PUBLIC_PLAYWRIGHT: "1",

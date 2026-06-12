@@ -1,8 +1,21 @@
 import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import withSerwistInit from "@serwist/next";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
+});
+
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+  // Spec P2-1: never hard-reload under the user; updates go through the
+  // Sonner prompt in sw-register.tsx instead.
+  reloadOnOnline: false,
+  // App Router pages are not in the build precache manifest; the offline
+  // fallback document must be added explicitly.
+  additionalPrecacheEntries: [{ url: "/~offline", revision: crypto.randomUUID() }],
 });
 
 const nextConfig: NextConfig = {
@@ -46,4 +59,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default withSerwist(withBundleAnalyzer(nextConfig));

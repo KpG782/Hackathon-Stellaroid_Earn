@@ -6,6 +6,7 @@ import { DeferredToastProvider } from "@/components/layout/deferred-toast-provid
 import { JsonLd } from "@/components/ui/json-ld";
 import { ScrollToTop } from "@/components/layout/scroll-to-top";
 import { NetworkBadge } from "@/components/layout/network-badge";
+import { SwRegister } from "@/components/pwa/sw-register";
 import "../styles/globals.css";
 import { cn } from "@/lib/utils";
 import {
@@ -159,6 +160,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         <NetworkBadge />
         <ScrollToTop />
+        <SwRegister />
         <Analytics />
         <DeferredToastProvider />
       </body>
