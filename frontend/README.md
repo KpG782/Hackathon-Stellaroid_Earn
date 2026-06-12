@@ -45,9 +45,11 @@ Open http://localhost:3000. Install [Freighter](https://www.freighter.app/) and 
 | `/payout/[id]` | Credential-gated payout checklist (P0-4): HMAC-signed stateless intent in the URL, on-chain credential check through the RPC fallback router, live Horizon payment detection with tx evidence, peso value, PH off-ramp guide (P1-1). |
 | `/api/payout-intent` | Employer mints a signed payout link (verifies the credential on-chain before signing). No DB — the token is the state. |
 | `/status` | Runtime health: active RPC provider (P0-1), PHP quote freshness + source (P0-2), PDAX mode (P0-3), config/contract checks (P1-4). |
+| `/~offline` | Offline fallback page served by the service worker for uncached navigations. Cached proof pages stay readable offline; reconnecting re-verifies on-chain. |
 
 ## Ops
 
+- **PWA (APAC spec §3):** `@serwist/next` builds `public/sw.js` on `next build` (disabled in dev). Updates are user-prompted via Sonner — no auto reload. `npm run test:e2e:pwa` runs the production-build PWA suite (manifest, SW registration, offline fallback). `sw.js` is excluded from the CSP middleware matcher so no document CSP attaches to the worker.
 - `npm run ops:reconcile -- "<intent URL or token>"` (P1-2) — re-derives a payout intent's full state from chain reads, prints a JSON report, exits non-zero on inconsistency. Idempotent and read-only.
 - `STELLAR_NETWORK` resolves the active network via `src/lib/network.ts` (M-1) — testnet default everywhere; mainnet activates only via maintainer-held env (see `setup/master-plan.md` §8). A persistent badge states the active network on every page.
 - `ANALYZE=true npm run build` opens the bundle analyzer (P1-3). Wallet code stays isolated to `/app`, `/issuer*`, `/employer`, `/opportunity`; PDAX and intent-signing code never reach client chunks.
