@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import QRCode from "qrcode";
 import { getCertificateServer } from "@/lib/contract-read-server";
+import { seoCanonicalUrl } from "@/lib/seo";
 import {
   encodePayoutIntent,
   getPayoutIntentSecret,
@@ -92,5 +94,22 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ url: `/payout/${encodeURIComponent(token)}` });
+  const url = `/payout/${encodeURIComponent(token)}`;
+
+  // QR renders server-side so `qrcode` stays out of client bundles — same
+  // pattern as /proof/[hash]/qr.
+  let qrSvg: string | null = null;
+  try {
+    qrSvg = await QRCode.toString(seoCanonicalUrl(url), {
+      type: "svg",
+      margin: 1,
+      width: 256,
+      color: { dark: "#0F172A", light: "#F8FAFC" },
+      errorCorrectionLevel: "M",
+    });
+  } catch {
+    qrSvg = null; // The QR is a nicety; the link itself is the product.
+  }
+
+  return NextResponse.json({ url, qrSvg });
 }

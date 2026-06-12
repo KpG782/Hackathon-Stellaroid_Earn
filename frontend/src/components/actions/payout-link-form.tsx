@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { HashInput } from "@/components/actions/hash-input";
-import { ProofQr } from "@/components/proof/proof-qr";
 import { CopyButton } from "@/components/ui/copy-button";
 
 function isValidAddress(addr: string): boolean {
@@ -35,7 +34,7 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<{ url: string; qrSvg: string | null } | null>(null);
 
   const formValid =
     isValidHash(certHash) && isValidAddress(recipient) && isValidAmount(amount);
@@ -45,7 +44,7 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
     if (!formValid || submitting) return;
     setSubmitting(true);
     setError(null);
-    setResultUrl(null);
+    setResult(null);
 
     try {
       const response = await fetch("/api/payout-intent", {
@@ -57,12 +56,19 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
           amountXlm: amount.trim(),
         }),
       });
-      const payload = (await response.json()) as { url?: string; error?: string };
+      const payload = (await response.json()) as {
+        url?: string;
+        qrSvg?: string | null;
+        error?: string;
+      };
       if (!response.ok || !payload.url) {
         setError(payload.error ?? "Could not create the payout link.");
         return;
       }
-      setResultUrl(new URL(payload.url, window.location.origin).toString());
+      setResult({
+        url: new URL(payload.url, window.location.origin).toString(),
+        qrSvg: payload.qrSvg ?? null,
+      });
     } catch {
       setError("Network error while creating the payout link.");
     } finally {
@@ -130,16 +136,25 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
         </div>
       </form>
 
-      {resultUrl && (
+      {result && (
         <div className="mt-6 flex flex-wrap items-center gap-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
-          <ProofQr url={resultUrl} size={96} />
+          {result.qrSvg && (
+            <img
+              src={`data:image/svg+xml;utf8,${encodeURIComponent(result.qrSvg)}`}
+              alt="QR code for the payout link"
+              width={96}
+              height={96}
+              decoding="async"
+              className="h-24 w-24 shrink-0 rounded bg-[#F8FAFC] p-1"
+            />
+          )}
           <div className="min-w-0 flex-1">
             <p className="m-0 text-sm font-medium text-text">Payout link ready</p>
-            <p className="m-0 mt-1 break-all font-mono text-xs text-text-muted">{resultUrl}</p>
+            <p className="m-0 mt-1 break-all font-mono text-xs text-text-muted">{result.url}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <CopyButton value={resultUrl} label="Copy link" ariaLabel="Copy payout link" />
+              <CopyButton value={result.url} label="Copy link" ariaLabel="Copy payout link" />
               <a
-                href={resultUrl}
+                href={result.url}
                 className="inline-flex items-center text-sm text-accent no-underline hover:underline"
               >
                 Open payout page →
