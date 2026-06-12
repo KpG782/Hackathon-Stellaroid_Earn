@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
+    "@noble/ed25519": "^3.1.0",
     "@serwist/next": "^9.5.11",
     "@stellar/freighter-api": "^4.1.0",
     "@stellar/stellar-sdk": "^13.1.0",
@@ -22,6 +23,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.8.0",
     "next": "^15.5.18",
     "qrcode": "^1.5.4",
