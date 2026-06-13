@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { PayoutAsset } from "@/lib/payout-asset";
 
 type QuotePayload = {
   quote: {
@@ -14,8 +15,10 @@ type QuotePayload = {
 };
 
 export interface FiatValueProps extends React.HTMLAttributes<HTMLSpanElement> {
-  /** Amount in XLM (display units, not stroops). */
+  /** Amount in `asset` display units (not stroops). */
   amount: number | string;
+  /** Which asset to price. Defaults to XLM for backward compatibility. */
+  asset?: PayoutAsset;
 }
 
 const pesoFormat = new Intl.NumberFormat("en-PH", {
@@ -36,12 +39,12 @@ function formatAsOf(iso: string): string {
  * freshness label. Hides itself entirely when no quote is available —
  * the page must never error or block on the peso line.
  */
-export function FiatValue({ amount, className, ...props }: FiatValueProps) {
+export function FiatValue({ amount, asset = "XLM", className, ...props }: FiatValueProps) {
   const [payload, setPayload] = React.useState<QuotePayload | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch("/api/quote")
+    fetch(`/api/quote?asset=${asset}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: QuotePayload | null) => {
         if (!cancelled) setPayload(data);
@@ -52,11 +55,11 @@ export function FiatValue({ amount, className, ...props }: FiatValueProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [asset]);
 
   const quote = payload?.quote ?? null;
-  const xlm = Number(amount);
-  if (!quote || !Number.isFinite(xlm)) return null;
+  const value = Number(amount);
+  if (!quote || !Number.isFinite(value)) return null;
 
   const asOf = formatAsOf(quote.asOf);
 
@@ -70,7 +73,7 @@ export function FiatValue({ amount, className, ...props }: FiatValueProps) {
       {...props}
     >
       <span className="font-medium text-text">
-        ≈ {pesoFormat.format(xlm * quote.price)}
+        ≈ {pesoFormat.format(value * quote.price)}
       </span>
       {asOf && <span className="text-xs">as of {asOf}</span>}
       {quote.stale && (

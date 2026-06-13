@@ -7,6 +7,7 @@ import {
   type HorizonPaymentRecord,
 } from "./payment-detect.ts";
 import type { PayoutIntent } from "./payout-intent.ts";
+import { getUsdcIssuer } from "./config.ts";
 
 const RECIPIENT = "GBS7TPSDSRSG57VGSRUGGHBSHIQVO4VPJBDPG2XLYTXN5FBGYVFXKFDN";
 const SENDER = "GAWIOVGFSPJDEIJJZUSVRFPVP3D5VNO2LGCU47KEHJD6MV277QKNR34D";
@@ -16,8 +17,22 @@ const INTENT: PayoutIntent = {
     "c02ce1602d5bbb6ddfe93c6603d7f4e3dae3b2fb571ea4e70669ccd5a359aea3",
   recipientAddress: RECIPIENT,
   amountXlm: "25.0000000",
+  asset: "XLM",
   createdAt: "2026-06-12T08:00:00.000Z",
 };
+
+const USDC_INTENT: PayoutIntent = { ...INTENT, asset: "USDC" };
+
+function usdcPayment(
+  overrides: Partial<HorizonPaymentRecord> = {},
+): HorizonPaymentRecord {
+  return payment({
+    asset_type: "credit_alphanum4",
+    asset_code: "USDC",
+    asset_issuer: getUsdcIssuer(),
+    ...overrides,
+  });
+}
 
 function payment(overrides: Partial<HorizonPaymentRecord> = {}): HorizonPaymentRecord {
   return {
@@ -101,6 +116,33 @@ test("fetchRecentPayments short-circuits contract recipients without a Horizon c
   });
   assert.deepEqual(records, []);
   assert.equal(called, false, "contracts are not Horizon accounts — no fetch");
+});
+
+test("matches a USDC credit payment from the configured issuer", () => {
+  const match = matchPayment([usdcPayment()], USDC_INTENT);
+  assert.ok(match);
+  assert.equal(match.asset_code, "USDC");
+});
+
+test("rejects a look-alike USDC from a different issuer", () => {
+  // Same code, attacker-controlled issuer — must not satisfy the intent.
+  assert.equal(
+    matchPayment([usdcPayment({ asset_issuer: SENDER })], USDC_INTENT),
+    null,
+  );
+});
+
+test("assets do not cross-match: native vs USDC intent and vice versa", () => {
+  assert.equal(matchPayment([payment()], USDC_INTENT), null);
+  assert.equal(matchPayment([usdcPayment()], INTENT), null);
+});
+
+test("USDC underpayment does not match; overpayment does", () => {
+  assert.equal(
+    matchPayment([usdcPayment({ amount: "24.9999999" })], USDC_INTENT),
+    null,
+  );
+  assert.ok(matchPayment([usdcPayment({ amount: "26.0000000" })], USDC_INTENT));
 });
 
 test("deriveIntentState ladders through the steps", () => {

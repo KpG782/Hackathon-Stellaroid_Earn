@@ -6,6 +6,7 @@ import {
   encodePayoutIntent,
   getPayoutIntentSecret,
 } from "@/lib/payout-intent";
+import { normalizePayoutAsset } from "@/lib/payout-asset";
 import { createRateLimiter } from "@/lib/rate-limit";
 
 const limiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     credentialHash?: unknown;
     recipientAddress?: unknown;
     amountXlm?: unknown;
+    asset?: unknown;
   };
   try {
     body = await request.json();
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
         credentialHash,
         recipientAddress,
         amountXlm,
+        asset: normalizePayoutAsset(body.asset),
         createdAt: new Date().toISOString(),
       },
       getPayoutIntentSecret(),

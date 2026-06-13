@@ -1,5 +1,6 @@
 import type { PayoutIntent } from "./payout-intent.ts";
 import { classifyRecipient } from "./recipient-address.ts";
+import { getUsdcIssuer } from "./config.ts";
 import { withTimeout } from "./with-timeout.ts";
 
 if (typeof window !== "undefined") {
@@ -13,12 +14,33 @@ export type HorizonPaymentRecord = {
   id: string;
   type: string;
   asset_type: string;
+  /** Present for credit assets (e.g. USDC); absent for native XLM. */
+  asset_code?: string;
+  asset_issuer?: string;
   from: string;
   to: string;
   amount: string;
   transaction_hash: string;
   created_at: string;
 };
+
+/**
+ * Whether a Horizon record carries the intent's asset: native for XLM, or a
+ * credit payment of USDC from the configured issuer. The issuer check is what
+ * stops a look-alike token (same code, attacker issuer) from matching.
+ */
+function recordMatchesAsset(
+  record: HorizonPaymentRecord,
+  asset: PayoutIntent["asset"],
+): boolean {
+  if (asset === "XLM") return record.asset_type === "native";
+  return (
+    (record.asset_type === "credit_alphanum4" ||
+      record.asset_type === "credit_alphanum12") &&
+    record.asset_code === "USDC" &&
+    record.asset_issuer === getUsdcIssuer()
+  );
+}
 
 export type PayoutIntentState =
   | "intent_created"
@@ -66,7 +88,7 @@ export function matchPayment(
 
   for (const record of records) {
     if (record.type !== "payment") continue;
-    if (record.asset_type !== "native") continue;
+    if (!recordMatchesAsset(record, intent.asset)) continue;
     if (record.to !== intent.recipientAddress) continue;
     if (Date.parse(record.created_at) <= notBefore) continue;
     let stroops: bigint;

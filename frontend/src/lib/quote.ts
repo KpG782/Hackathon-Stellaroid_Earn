@@ -1,4 +1,5 @@
 import { withTimeout } from "./with-timeout.ts";
+import { COINGECKO_ID, type PayoutAsset } from "./payout-asset.ts";
 
 if (typeof window !== "undefined") {
   throw new Error("quote module is server-only and must not be imported in a client bundle");
@@ -19,10 +20,13 @@ export type QuoteDeps = {
   pdaxTicker?: (pair: string) => Promise<{ last: string; timestamp: string }>;
 };
 
-const COINGECKO_URL =
-  "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=php";
+const COINGECKO_BASE = "https://api.coingecko.com/api/v3/simple/price";
 const PROVIDER_TIMEOUT_MS = 5_000;
 const DEFAULT_TTL_SECONDS = 60;
+
+function coingeckoUrl(asset: PayoutAsset): string {
+  return `${COINGECKO_BASE}?ids=${COINGECKO_ID[asset]}&vs_currencies=php`;
+}
 
 type CacheEntry = {
   price: number;
@@ -30,10 +34,10 @@ type CacheEntry = {
   fetchedAt: number;
 };
 
-let lastGood: CacheEntry | null = null;
+const lastGoodByAsset = new Map<PayoutAsset, CacheEntry>();
 
 export function resetQuoteCacheForTests() {
-  lastGood = null;
+  lastGoodByAsset.clear();
 }
 
 function getTtlMs(): number {
@@ -72,17 +76,18 @@ async function fetchPdaxQuote(
 }
 
 async function fetchCoingeckoQuote(
+  asset: PayoutAsset,
   deps: Required<Pick<QuoteDeps, "now">> & QuoteDeps,
 ): Promise<Quote | null> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const response = await withTimeout(
-    fetchImpl(COINGECKO_URL, { headers: { Accept: "application/json" } }),
+    fetchImpl(coingeckoUrl(asset), { headers: { Accept: "application/json" } }),
     PROVIDER_TIMEOUT_MS,
     "CoinGecko simple-price",
   );
   if (!response.ok) return null;
-  const payload = (await response.json()) as { stellar?: { php?: unknown } };
-  const price = parsePrice(payload.stellar?.php);
+  const payload = (await response.json()) as Record<string, { php?: unknown }>;
+  const price = parsePrice(payload[COINGECKO_ID[asset]]?.php);
   if (price === null) return null;
   return {
     price,
@@ -93,41 +98,41 @@ async function fetchCoingeckoQuote(
 }
 
 /**
- * PHP price quote for XLM with a graceful provider chain:
- * PDAX staging ticker (only when PDAX_MODE=staging) → CoinGecko →
+ * PHP price quote for an asset with a graceful provider chain:
+ * PDAX staging ticker (XLM only, when PDAX_MODE=staging) → CoinGecko →
  * last-good cached value flagged stale → null. Never throws: a page
  * rendering a peso line must degrade by hiding it, not erroring.
  */
 export async function getQuote(
-  asset: "XLM",
+  asset: PayoutAsset,
   fiat: "PHP",
   deps: QuoteDeps = {},
 ): Promise<Quote | null> {
-  void asset;
   void fiat;
   const now = deps.now ?? Date.now;
   const nowMs = now();
 
-  if (lastGood && nowMs - lastGood.fetchedAt < getTtlMs()) {
-    return {
-      price: lastGood.price,
-      asOf: lastGood.asOf,
-      source: "cache",
-      stale: false,
-    };
+  const cached = lastGoodByAsset.get(asset);
+  if (cached && nowMs - cached.fetchedAt < getTtlMs()) {
+    return { price: cached.price, asOf: cached.asOf, source: "cache", stale: false };
   }
 
   const providers: Array<() => Promise<Quote | null>> = [];
-  if (process.env.PDAX_MODE?.toLowerCase() === "staging") {
+  // PDAX staging only quotes the XLM/PHP pair; USDC goes straight to CoinGecko.
+  if (asset === "XLM" && process.env.PDAX_MODE?.toLowerCase() === "staging") {
     providers.push(() => fetchPdaxQuote({ ...deps, now }));
   }
-  providers.push(() => fetchCoingeckoQuote({ ...deps, now }));
+  providers.push(() => fetchCoingeckoQuote(asset, { ...deps, now }));
 
   for (const provider of providers) {
     try {
       const quote = await provider();
       if (quote) {
-        lastGood = { price: quote.price, asOf: quote.asOf, fetchedAt: nowMs };
+        lastGoodByAsset.set(asset, {
+          price: quote.price,
+          asOf: quote.asOf,
+          fetchedAt: nowMs,
+        });
         return quote;
       }
     } catch {
@@ -135,13 +140,8 @@ export async function getQuote(
     }
   }
 
-  if (lastGood) {
-    return {
-      price: lastGood.price,
-      asOf: lastGood.asOf,
-      source: "cache",
-      stale: true,
-    };
+  if (cached) {
+    return { price: cached.price, asOf: cached.asOf, source: "cache", stale: true };
   }
 
   return null;

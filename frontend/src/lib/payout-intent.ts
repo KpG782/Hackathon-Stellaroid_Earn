@@ -1,5 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isValidRecipientAddress } from "./recipient-address.ts";
+import {
+  isPayoutAsset,
+  normalizePayoutAsset,
+  type PayoutAsset,
+} from "./payout-asset.ts";
 
 if (typeof window !== "undefined") {
   throw new Error(
@@ -21,8 +26,14 @@ export type PayoutIntent = {
    * or a Soroban smart-wallet contract (C-address, e.g. a passkey wallet).
    */
   recipientAddress: string;
-  /** Display-unit XLM amount with exactly 7 decimal places. */
+  /**
+   * Display-unit amount (in `asset`) with exactly 7 decimal places. Named
+   * `amountXlm` for token backward-compatibility; it is the amount in whatever
+   * asset the intent carries.
+   */
   amountXlm: string;
+  /** Payout asset. Absent in legacy tokens → read as XLM. */
+  asset: PayoutAsset;
   /** ISO timestamp; only payments newer than this count. */
   createdAt: string;
 };
@@ -51,7 +62,7 @@ export function isDevSecret(): boolean {
 function validateIntent(value: unknown): PayoutIntent | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
-  const { credentialHash, recipientAddress, amountXlm, createdAt } = record;
+  const { credentialHash, recipientAddress, amountXlm, asset, createdAt } = record;
 
   if (typeof credentialHash !== "string" || !HASH_RE.test(credentialHash)) {
     return null;
@@ -69,6 +80,11 @@ function validateIntent(value: unknown): PayoutIntent | null {
   ) {
     return null;
   }
+  // Legacy tokens omit `asset` (→ XLM); a present-but-unknown asset is a forged
+  // or unsupported token and is rejected.
+  if (asset !== undefined && !isPayoutAsset(asset)) {
+    return null;
+  }
   if (typeof createdAt !== "string" || Number.isNaN(Date.parse(createdAt))) {
     return null;
   }
@@ -77,6 +93,7 @@ function validateIntent(value: unknown): PayoutIntent | null {
     credentialHash: credentialHash.toLowerCase(),
     recipientAddress,
     amountXlm,
+    asset: normalizePayoutAsset(asset),
     createdAt,
   };
 }

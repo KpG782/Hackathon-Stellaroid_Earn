@@ -13,6 +13,7 @@ const VALID: PayoutIntent = {
     "c02ce1602d5bbb6ddfe93c6603d7f4e3dae3b2fb571ea4e70669ccd5a359aea3",
   recipientAddress: "GBS7TPSDSRSG57VGSRUGGHBSHIQVO4VPJBDPG2XLYTXN5FBGYVFXKFDN",
   amountXlm: "25.0000000",
+  asset: "XLM",
   createdAt: "2026-06-12T08:00:00.000Z",
 };
 
@@ -84,6 +85,29 @@ test("decode revalidates shape even when the signature matches", () => {
   const bad = { ...VALID, recipientAddress: "GSHORT" };
   // Bypass encode validation by signing the bad payload manually.
   const json = JSON.stringify(bad);
+  const payload = Buffer.from(json).toString("base64url");
+  const token = `${payload}.${signPayloadForTests(json, SECRET)}`;
+  assert.equal(decodePayoutIntent(token, SECRET), null);
+});
+
+test("round-trips a USDC intent", () => {
+  const intent: PayoutIntent = { ...VALID, asset: "USDC" };
+  const token = encodePayoutIntent(intent, SECRET);
+  assert.deepEqual(decodePayoutIntent(token, SECRET), intent);
+});
+
+test("a legacy token without an asset field decodes as XLM", () => {
+  // Sign a payload that predates the asset field — must still verify.
+  const { asset: _omit, ...legacy } = VALID;
+  void _omit;
+  const json = JSON.stringify(legacy);
+  const payload = Buffer.from(json).toString("base64url");
+  const token = `${payload}.${signPayloadForTests(json, SECRET)}`;
+  assert.deepEqual(decodePayoutIntent(token, SECRET), { ...legacy, asset: "XLM" });
+});
+
+test("a token with an unsupported asset is rejected", () => {
+  const json = JSON.stringify({ ...VALID, asset: "BTC" });
   const payload = Buffer.from(json).toString("base64url");
   const token = `${payload}.${signPayloadForTests(json, SECRET)}`;
   assert.equal(decodePayoutIntent(token, SECRET), null);

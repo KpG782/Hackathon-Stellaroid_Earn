@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getQuote } from "@/lib/quote";
+import { isPayoutAsset } from "@/lib/payout-asset";
 import { createRateLimiter } from "@/lib/rate-limit";
 
 // CDN does the heavy lifting via s-maxage; the limiter only damps direct
@@ -21,9 +22,12 @@ export async function GET(request: Request) {
     );
   }
 
+  const assetParam = new URL(request.url).searchParams.get("asset");
+  const asset = isPayoutAsset(assetParam) ? assetParam : "XLM";
+
   // getQuote never throws; a null quote is a valid degraded response and the
   // UI hides the peso line rather than erroring.
-  const quote = await getQuote("XLM", "PHP");
+  const quote = await getQuote(asset, "PHP");
 
   return NextResponse.json(
     { quote },

@@ -83,6 +83,62 @@ test("total failure with empty cache returns null, never throws", async () => {
   assert.equal(quote, null);
 });
 
+test("quotes USDC through the usd-coin CoinGecko id", async () => {
+  const quote = await getQuote("USDC", "PHP", {
+    fetchImpl: async (input) => {
+      assert.match(String(input), /ids=usd-coin/);
+      return new Response(JSON.stringify({ "usd-coin": { php: 56.5 } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    now: () => NOW,
+  });
+
+  assert.ok(quote);
+  assert.equal(quote.source, "coingecko");
+  assert.equal(quote.price, 56.5);
+});
+
+test("USDC skips PDAX even in staging mode", async () => {
+  process.env.PDAX_MODE = "staging";
+  let pdaxCalled = false;
+  const quote = await getQuote("USDC", "PHP", {
+    fetchImpl: async () =>
+      new Response(JSON.stringify({ "usd-coin": { php: 56.5 } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    now: () => NOW,
+    pdaxTicker: async () => {
+      pdaxCalled = true;
+      return { last: "1.0", timestamp: "x" };
+    },
+  });
+
+  assert.equal(pdaxCalled, false, "PDAX only quotes XLM/PHP");
+  assert.equal(quote?.price, 56.5);
+});
+
+test("XLM and USDC caches are independent", async () => {
+  let usdcFetches = 0;
+  await getQuote("XLM", "PHP", { fetchImpl: coingeckoOk(6.21), now: () => NOW });
+  const usdc = await getQuote("USDC", "PHP", {
+    fetchImpl: async () => {
+      usdcFetches += 1;
+      return new Response(JSON.stringify({ "usd-coin": { php: 56.5 } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    now: () => NOW,
+  });
+
+  // A warm XLM cache must not satisfy a USDC quote.
+  assert.equal(usdcFetches, 1);
+  assert.equal(usdc?.price, 56.5);
+});
+
 test("second call within TTL serves the cache without refetching", async () => {
   let fetches = 0;
   const fetchImpl = async () => {

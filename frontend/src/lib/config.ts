@@ -45,6 +45,22 @@ const networkLabelByName: Record<string, string> = {
   PUBNET: "Pubnet",
 };
 
+// Circle's canonical USDC issuers per network (overridable for other anchors).
+const usdcIssuerByName: Record<string, string> = {
+  TESTNET: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  PUBLIC: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+  PUBNET: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+};
+
+/** USDC issuer (G-address) for the active network — payment detection keys on it. */
+export function getUsdcIssuer(): string {
+  return (
+    process.env.NEXT_PUBLIC_USDC_ISSUER?.trim() ||
+    usdcIssuerByName[appConfig.network] ||
+    usdcIssuerByName.TESTNET
+  );
+}
+
 export function getExpectedNetworkPassphrase() {
   return networkPassphraseByName[appConfig.network] ?? appConfig.networkPassphrase;
 }

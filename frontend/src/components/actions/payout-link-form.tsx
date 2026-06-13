@@ -4,11 +4,9 @@ import { useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { HashInput } from "@/components/actions/hash-input";
 import { CopyButton } from "@/components/ui/copy-button";
-
-function isValidAddress(addr: string): boolean {
-  const trimmed = addr.trim();
-  return trimmed.startsWith("G") && trimmed.length === 56;
-}
+import { isValidRecipientAddress } from "@/lib/recipient-address";
+import { PAYOUT_ASSETS, type PayoutAsset } from "@/lib/payout-asset";
+import { cn } from "@/lib/utils";
 
 function isValidHash(hash: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(hash.trim().replace(/^0x/i, ""));
@@ -32,12 +30,15 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
   const [certHash, setCertHash] = useState(initialHash ?? "");
   const [recipient, setRecipient] = useState(initialRecipient ?? "");
   const [amount, setAmount] = useState("");
+  const [asset, setAsset] = useState<PayoutAsset>("USDC");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; qrSvg: string | null } | null>(null);
 
   const formValid =
-    isValidHash(certHash) && isValidAddress(recipient) && isValidAmount(amount);
+    isValidHash(certHash) &&
+    isValidRecipientAddress(recipient.trim()) &&
+    isValidAmount(amount);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -54,6 +55,7 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
           credentialHash: certHash.trim().replace(/^0x/i, ""),
           recipientAddress: recipient.trim(),
           amountXlm: amount.trim(),
+          asset,
         }),
       });
       const payload = (await response.json()) as {
@@ -106,14 +108,39 @@ export function PayoutLinkForm({ initialHash, initialRecipient }: PayoutLinkForm
             id="payout-recipient"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            placeholder="G… (56 characters)"
+            placeholder="G… or C… (56 characters)"
             autoComplete="off"
             spellCheck={false}
           />
+          <p className="mt-1 text-xs text-text-muted">
+            Classic account (G…) or a graduate&apos;s passkey wallet (C…).
+          </p>
+        </div>
+        <div>
+          <span className="mb-1 block text-sm font-medium text-text">Asset</span>
+          <div className="flex gap-2" role="radiogroup" aria-label="Payout asset">
+            {PAYOUT_ASSETS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={asset === option}
+                onClick={() => setAsset(option)}
+                className={cn(
+                  "min-h-[40px] rounded-lg border px-4 text-sm font-semibold transition-colors",
+                  asset === option
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-surface-2 text-text-muted hover:border-primary/40",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label htmlFor="payout-amount" className="mb-1 block text-sm font-medium text-text">
-            Amount (XLM)
+            Amount ({asset})
           </label>
           <Input
             id="payout-amount"

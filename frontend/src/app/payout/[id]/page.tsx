@@ -4,7 +4,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import { appConfig } from "@/lib/config";
+import { appConfig, getExpectedNetworkLabel } from "@/lib/config";
 import { getCertificateServer } from "@/lib/contract-read-server";
 import {
   decodePayoutIntent,
@@ -164,6 +164,7 @@ export default async function PayoutPage({ params }: PageProps) {
     const txUrl = payment
       ? `${appConfig.explorerUrl}/tx/${payment.transaction_hash}`
       : null;
+    const networkLabel = getExpectedNetworkLabel();
 
     body = (
       <>
@@ -173,7 +174,8 @@ export default async function PayoutPage({ params }: PageProps) {
             Credential-gated payout
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-text">
-            {intent.amountXlm} XLM <FiatValue amount={intent.amountXlm} />
+            {intent.amountXlm} {intent.asset}{" "}
+            <FiatValue amount={intent.amountXlm} asset={intent.asset} />
           </h1>
           <p className="mt-2 max-w-[720px] text-sm leading-relaxed text-text-muted">
             Pays <span className="font-mono text-text">{shorten(intent.recipientAddress)}</span> once
@@ -185,7 +187,7 @@ export default async function PayoutPage({ params }: PageProps) {
             {isDevSecret() && (
               <Badge tone="warning">demo signing key</Badge>
             )}
-            <Badge tone="accent">testnet</Badge>
+            <Badge tone="accent">{networkLabel}</Badge>
           </div>
         </section>
 
@@ -216,13 +218,13 @@ export default async function PayoutPage({ params }: PageProps) {
             </Step>
             <Step
               index={2}
-              title="Payment detected on testnet"
+              title={`Payment detected on ${networkLabel}`}
               status={payment ? "done" : credentialVerified ? "active" : "locked"}
             >
               {payment && txUrl ? (
                 <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-text-muted">
                   <Badge tone="success" dot>
-                    {payment.amount} XLM received
+                    {payment.amount} {intent.asset} received
                   </Badge>
                   <a
                     href={txUrl}
@@ -235,7 +237,8 @@ export default async function PayoutPage({ params }: PageProps) {
                 </p>
               ) : credentialVerified ? (
                 <p className="mt-1 text-sm leading-relaxed text-text-muted">
-                  Waiting for a payment of at least {intent.amountXlm} XLM to{" "}
+                  Waiting for a payment of at least {intent.amountXlm}{" "}
+                  {intent.asset} to{" "}
                   <span className="font-mono">{shorten(intent.recipientAddress)}</span>{" "}
                   newer than this link. Checks again every 15 seconds.
                 </p>
@@ -248,7 +251,8 @@ export default async function PayoutPage({ params }: PageProps) {
             >
               {payment && (
                 <p className="mt-1 text-sm text-text-muted">
-                  {payment.amount} XLM <FiatValue amount={payment.amount} />
+                  {payment.amount} {intent.asset}{" "}
+                  <FiatValue amount={payment.amount} asset={intent.asset} />
                 </p>
               )}
             </Step>
