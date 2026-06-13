@@ -7,6 +7,7 @@ import {
   getPayoutIntentSecret,
 } from "@/lib/payout-intent";
 import { normalizePayoutAsset } from "@/lib/payout-asset";
+import { paymentsActive } from "@/lib/config";
 import { createRateLimiter } from "@/lib/rate-limit";
 
 const limiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
@@ -26,6 +27,14 @@ function clientKey(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  // Kill switch: on mainnet, payout-link creation requires the explicit opt-in.
+  if (!paymentsActive()) {
+    return NextResponse.json(
+      { error: "Mainnet payouts are paused right now. Please try again later." },
+      { status: 503 },
+    );
+  }
+
   if (!limiter.check(clientKey(request))) {
     return NextResponse.json(
       { error: "Too many requests." },

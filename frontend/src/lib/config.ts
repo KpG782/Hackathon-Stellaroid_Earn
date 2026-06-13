@@ -69,6 +69,36 @@ export function getExpectedNetworkLabel() {
   return networkLabelByName[appConfig.network] ?? appConfig.network;
 }
 
+const MAINNET_NETWORKS = new Set(["PUBLIC", "PUBNET"]);
+
+/** True when the deployment targets Stellar mainnet (pubnet). */
+export function isMainnet(): boolean {
+  return MAINNET_NETWORKS.has(appConfig.network);
+}
+
+/**
+ * Server-side kill switch for real-money flows (APAC spec §5). Reading it at
+ * request time means the maintainer can pause mainnet payouts by flipping the
+ * Vercel env — no redeploy. Never NEXT_PUBLIC_* (must not be baked into the
+ * client bundle).
+ */
+export function mainnetPaymentsEnabled(): boolean {
+  return process.env.ENABLE_MAINNET_PAYMENTS === "true";
+}
+
+/** Pure kill-switch rule (unit-testable independent of the frozen env). */
+export function arePaymentsActive(mainnet: boolean, mainnetEnabled: boolean): boolean {
+  return !mainnet || mainnetEnabled;
+}
+
+/**
+ * Whether new payout links may be created right now. Testnet is always active
+ * (no real money); mainnet requires the explicit ENABLE_MAINNET_PAYMENTS opt-in.
+ */
+export function paymentsActive(): boolean {
+  return arePaymentsActive(isMainnet(), mainnetPaymentsEnabled());
+}
+
 export function hasRequiredConfig() {
   return Boolean(appConfig.contractId && appConfig.rpcUrl);
 }

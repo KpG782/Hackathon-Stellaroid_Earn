@@ -14,7 +14,9 @@ test("status page exposes project health, domain state, and proof links", async 
   ).toBeVisible();
   await expect(page.getByText("Fallback demo", { exact: true })).toBeVisible();
   await expect(page.getByText("Custom domain", { exact: true })).toBeVisible();
-  await expect(page.getByText("Stellar testnet", { exact: true })).toBeVisible();
+  // Network label is dynamic; the e2e deployment targets testnet.
+  await expect(page.getByText("Stellar Testnet", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Network · Testnet/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open sample proof" })).toHaveAttribute(
     "href",
     /^\/proof\/[0-9a-f]{64}$/,

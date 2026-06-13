@@ -137,7 +137,7 @@ export default async function StatusPage() {
 
           <article className="rounded-lg border border-border bg-surface p-5">
             <p className="m-0 font-pixel text-[11px] uppercase tracking-widest text-text-muted">
-              Stellar testnet
+              Stellar {health.network}
             </p>
             <h2 className="mt-2 text-xl text-text">
               {appConfig.contractId ? shortenAddress(appConfig.contractId, 8) : "Not configured"}
@@ -163,6 +163,11 @@ export default async function StatusPage() {
               <h2 className="m-0 text-xl text-text">Runtime Checks</h2>
             </div>
             <div className="grid gap-3">
+              <CheckRow
+                label={`Network · ${health.network}`}
+                detail={health.checks.payments.detail}
+                ok={health.checks.payments.ok}
+              />
               <CheckRow label="Config" detail={health.checks.config.detail} ok={health.checks.config.ok} />
               <CheckRow label="RPC" detail={health.checks.rpc.detail} ok={health.checks.rpc.ok} />
               <CheckRow label="Contract config" detail={health.checks.contract.detail} ok={health.checks.contract.ok} />

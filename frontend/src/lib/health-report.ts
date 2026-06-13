@@ -1,4 +1,11 @@
-import { appConfig, hasRequiredConfig } from "@/lib/config";
+import {
+  appConfig,
+  getExpectedNetworkLabel,
+  hasRequiredConfig,
+  isMainnet,
+  mainnetPaymentsEnabled,
+  paymentsActive,
+} from "@/lib/config";
 import {
   getActiveProvider,
   routeRpcJsonRpc,
@@ -10,7 +17,9 @@ export type HealthStatus = "healthy" | "degraded" | "down";
 export type HealthReport = {
   status: HealthStatus;
   timestamp: string;
+  network: string;
   checks: {
+    payments: { ok: boolean; active: boolean; mainnet: boolean; detail: string };
     config: { ok: boolean; detail: string };
     rpc: {
       ok: boolean;
@@ -96,10 +105,25 @@ export async function getHealthReport(): Promise<HealthReport> {
   const status: HealthStatus =
     configOk && rpcOk && contractOk ? "healthy" : configOk ? "degraded" : "down";
 
+  const paymentsOnMainnet = isMainnet();
+  const paymentsOk = paymentsActive();
+  const paymentsDetail = !paymentsOnMainnet
+    ? `Testnet payouts active on ${getExpectedNetworkLabel()}`
+    : mainnetPaymentsEnabled()
+      ? "Mainnet payouts ENABLED (ENABLE_MAINNET_PAYMENTS=true)"
+      : "Mainnet payouts paused — set ENABLE_MAINNET_PAYMENTS=true to enable";
+
   return {
     status,
     timestamp,
+    network: getExpectedNetworkLabel(),
     checks: {
+      payments: {
+        ok: paymentsOk,
+        active: paymentsOk,
+        mainnet: paymentsOnMainnet,
+        detail: paymentsDetail,
+      },
       config: {
         ok: configOk,
         detail: configOk
