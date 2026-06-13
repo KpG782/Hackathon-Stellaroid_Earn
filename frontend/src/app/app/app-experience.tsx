@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useState, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { NetworkBanner } from "@/components/app/network-banner";
 import { WalletEmptyState } from "@/components/app/wallet-empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -23,6 +24,13 @@ import { appConfig } from "@/lib/config";
 import { shortenAddress } from "@/lib/format";
 import { getCredentialTitleForPreviewState } from "@/lib/proof-preview";
 import type { CertificateStatus } from "@/lib/types";
+
+// Graduate passkey wallet: lazy + client-only so passkey-kit stays out of every
+// other route's bundle (P1-3). Self-hides until passkeys are provisioned.
+const PasskeyWalletPanel = dynamic(
+  () => import("@/components/wallet/passkey-wallet-panel"),
+  { ssr: false },
+);
 
 interface AppExperienceProps {
   sidebarActivity?: ReactNode;
@@ -237,8 +245,9 @@ export function AppExperience({ sidebarActivity }: AppExperienceProps) {
                   : <code className="font-mono text-[13px] text-text-muted">{shortContract}</code>
                 }
               </div>
-              <div className="px-4 py-4">
+              <div className="px-4 py-4 flex flex-col gap-3">
                 <WalletConnectButton sidebar />
+                <PasskeyWalletPanel />
               </div>
             </div>
             <div className="max-[920px]:hidden bg-surface border border-border rounded-lg px-5 py-4">

@@ -36,8 +36,29 @@ const nextConfig: NextConfig = {
   // and lets Node resolve them at runtime instead.
   serverExternalPackages: ["sodium-native", "@stellar/stellar-sdk", "@stellar/stellar-base"],
 
+  // passkey-kit (+ its SDKs) ship raw TypeScript as their entry points, so Next
+  // must run its loaders over them. They reach the bundle only through the
+  // dynamic imports in passkey-wallet.ts / passkey-server.ts, so this does not
+  // pull wallet bytes into landing/proof routes (P1-3 invariant).
+  transpilePackages: ["passkey-kit", "passkey-kit-sdk", "sac-sdk"],
+
   // Hide the floating Next.js dev HUD so screenshots stay clean.
   devIndicators: false,
+
+  webpack: (config, { webpack }) => {
+    // stellar-sdk@14's contract-bindings codegen (passkey-kit's nested copy)
+    // does a require("../../package.json") that resolves to a nonexistent
+    // lib/package.json under the bundler. That code path never runs in the
+    // browser, so stub the require — the runtime sdk is unaffected. Without
+    // this the passkey wallet chunk fails to compile.
+    config.plugins.push(
+      new webpack.IgnorePlugin({
+        resourceRegExp: /^\.\.\/\.\.\/package\.json$/,
+        contextRegExp: /stellar-sdk[\\/]lib[\\/]minimal[\\/]bindings/,
+      }),
+    );
+    return config;
+  },
 
   async headers() {
     // Permissions-Policy is split into two rules: camera stays denied
