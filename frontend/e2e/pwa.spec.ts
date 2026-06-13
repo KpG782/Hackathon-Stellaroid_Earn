@@ -30,6 +30,11 @@ test.describe("PWA shell", () => {
     });
     // Reload so the page is controlled by the active SW before going offline.
     await page.reload();
+    // Gate on the SW actually controlling the page. clientsClaim only fires
+    // after activation, which the larger precache set (now including /verify)
+    // can push past the reload — without this wait the offline navigation
+    // races SW control and the fallback intermittently doesn't fire.
+    await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
     await context.setOffline(true);
     await page.goto("/metrics");
     await expect(

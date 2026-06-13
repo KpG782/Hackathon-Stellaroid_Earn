@@ -14,8 +14,12 @@ const withSerwist = withSerwistInit({
   // Sonner prompt in sw-register.tsx instead.
   reloadOnOnline: false,
   // App Router pages are not in the build precache manifest; the offline
-  // fallback document must be added explicitly.
-  additionalPrecacheEntries: [{ url: "/~offline", revision: crypto.randomUUID() }],
+  // fallback document must be added explicitly. /verify is precached too so
+  // the verifier shell keeps working offline at job-fair venues.
+  additionalPrecacheEntries: [
+    { url: "/~offline", revision: crypto.randomUUID() },
+    { url: "/verify", revision: crypto.randomUUID() },
+  ],
 });
 
 const nextConfig: NextConfig = {
@@ -36,10 +40,15 @@ const nextConfig: NextConfig = {
   devIndicators: false,
 
   async headers() {
+    // Permissions-Policy is split into two rules: camera stays denied
+    // everywhere except /verify, which needs same-origin camera access for
+    // low-light job-fair QR scanning (APAC spec §3). All other headers are
+    // duplicated identically across both rules.
     return [
       {
         // CSP is nonce-based and is applied from src/middleware.ts.
-        source: "/(.*)",
+        // Every route except /verify: camera fully denied.
+        source: "/((?!verify).*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
@@ -47,6 +56,24 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
+          },
+          {
+            // Tell browsers to always use HTTPS for 2 years.
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ],
+      },
+      {
+        // /verify only: allow same-origin camera for the QR scanner.
+        source: "/verify",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=()",
           },
           {
             // Tell browsers to always use HTTPS for 2 years.
