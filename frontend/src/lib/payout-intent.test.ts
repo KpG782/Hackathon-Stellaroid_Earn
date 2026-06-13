@@ -22,6 +22,26 @@ test("round-trips a valid intent", () => {
   assert.deepEqual(decodePayoutIntent(token, SECRET), VALID);
 });
 
+test("accepts a smart-wallet contract (C-address) recipient", () => {
+  // Passkey graduate wallets are Soroban contract accounts (APAC spec §4).
+  const intent: PayoutIntent = {
+    ...VALID,
+    recipientAddress: "CDMUOHMARNVOJZM3IVOCJUPGBHDTHFBMZCCZXEZPQDVJGILH3NIKTTW3",
+  };
+  const token = encodePayoutIntent(intent, SECRET);
+  assert.deepEqual(decodePayoutIntent(token, SECRET), intent);
+});
+
+test("rejects a recipient with a corrupted checksum (G or C)", () => {
+  const badG = VALID.recipientAddress.slice(0, -1) +
+    (VALID.recipientAddress.at(-1) === "A" ? "B" : "A");
+  assert.throws(() => encodePayoutIntent({ ...VALID, recipientAddress: badG }, SECRET));
+
+  const contract = "CDMUOHMARNVOJZM3IVOCJUPGBHDTHFBMZCCZXEZPQDVJGILH3NIKTTW3";
+  const badC = contract.slice(0, -1) + (contract.at(-1) === "A" ? "B" : "A");
+  assert.throws(() => encodePayoutIntent({ ...VALID, recipientAddress: badC }, SECRET));
+});
+
 test("rejects a tampered payload", () => {
   const token = encodePayoutIntent(VALID, SECRET);
   const [, signature] = token.split(".");

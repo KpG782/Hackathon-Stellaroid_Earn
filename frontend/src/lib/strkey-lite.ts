@@ -13,7 +13,8 @@
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 const ED25519_PUBLIC_KEY_VERSION_BYTE = 6 << 3; // 48 → leading "G"
-const G_ADDRESS_LENGTH = 56;
+const CONTRACT_VERSION_BYTE = 2 << 3; // 16 → leading "C" (Soroban contract)
+const G_ADDRESS_LENGTH = 56; // also the length of a C-address (same payload size)
 const DECODED_LENGTH = 35; // 1 version + 32 payload + 2 checksum
 
 function base32Decode(input: string): Uint8Array {
@@ -82,4 +83,38 @@ export function ed25519PublicKeyFromAddress(gAddress: string): Uint8Array {
   }
 
   return new Uint8Array(payload.subarray(1));
+}
+
+/**
+ * Non-throwing strkey check: true iff `address` is a well-formed strkey of
+ * the given version byte (correct length, base32 alphabet, canonical padding,
+ * and CRC16-XModem checksum). Shared by the public-key and contract-address
+ * validators below.
+ */
+function isValidStrkey(address: string, versionByte: number): boolean {
+  if (typeof address !== "string" || address.length !== G_ADDRESS_LENGTH) {
+    return false;
+  }
+  let decoded: Uint8Array;
+  try {
+    decoded = base32Decode(address);
+  } catch {
+    return false;
+  }
+  if (decoded.length !== DECODED_LENGTH || decoded[0] !== versionByte) {
+    return false;
+  }
+  const payload = decoded.subarray(0, DECODED_LENGTH - 2);
+  const actual = decoded[DECODED_LENGTH - 2] | (decoded[DECODED_LENGTH - 1] << 8);
+  return crc16XModem(payload) === actual;
+}
+
+/** True iff `address` is a valid Stellar ed25519 public key (G-address). */
+export function isValidEd25519PublicKey(address: string): boolean {
+  return isValidStrkey(address, ED25519_PUBLIC_KEY_VERSION_BYTE);
+}
+
+/** True iff `address` is a valid Soroban contract address (C-address). */
+export function isValidContractAddress(address: string): boolean {
+  return isValidStrkey(address, CONTRACT_VERSION_BYTE);
 }

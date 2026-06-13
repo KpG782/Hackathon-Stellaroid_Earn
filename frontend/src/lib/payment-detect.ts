@@ -1,4 +1,5 @@
 import type { PayoutIntent } from "./payout-intent.ts";
+import { classifyRecipient } from "./recipient-address.ts";
 import { withTimeout } from "./with-timeout.ts";
 
 if (typeof window !== "undefined") {
@@ -53,6 +54,13 @@ export function matchPayment(
   records: HorizonPaymentRecord[],
   intent: PayoutIntent,
 ): HorizonPaymentRecord | null {
+  // Smart-wallet (contract) recipients receive XLM/USDC through the Stellar
+  // Asset Contract, which never surfaces as a classic Horizon payment whose
+  // `to` is the contract address. Detecting those payments is the Week 4
+  // deliverable (SAC transfer events via Soroban RPC); until then the classic
+  // matcher reports no match and the intent stays "credential_verified".
+  if (classifyRecipient(intent.recipientAddress) === "contract") return null;
+
   const requiredStroops = toStroops(intent.amountXlm);
   const notBefore = Date.parse(intent.createdAt);
 
@@ -95,6 +103,11 @@ export async function fetchRecentPayments(
   address: string,
   options: FetchPaymentsOptions = {},
 ): Promise<HorizonPaymentRecord[]> {
+  // Contracts are not Horizon accounts: /accounts/{C}/payments is always a
+  // 404. Short-circuit so the poller doesn't spend a round-trip per tick on a
+  // smart-wallet recipient (its payments arrive as SAC events — Week 4).
+  if (classifyRecipient(address) === "contract") return [];
+
   const horizonUrl = options.horizonUrl ?? getHorizonUrl();
   const fetchImpl = options.fetchImpl ?? fetch;
   const limit = options.limit ?? DEFAULT_LIMIT;

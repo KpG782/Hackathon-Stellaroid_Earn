@@ -76,6 +76,33 @@ test("first matching record wins from a mixed list", () => {
   assert.equal(match?.id, "2");
 });
 
+const CONTRACT_RECIPIENT =
+  "CDMUOHMARNVOJZM3IVOCJUPGBHDTHFBMZCCZXEZPQDVJGILH3NIKTTW3";
+
+test("contract (smart-wallet) recipients are not matched by the classic path", () => {
+  // A SAC transfer to a contract never appears as a classic payment whose `to`
+  // is the contract, so even a record naming it must not match (Week 4 work).
+  const contractIntent: PayoutIntent = {
+    ...INTENT,
+    recipientAddress: CONTRACT_RECIPIENT,
+  };
+  const record = payment({ to: CONTRACT_RECIPIENT });
+  assert.equal(matchPayment([record], contractIntent), null);
+});
+
+test("fetchRecentPayments short-circuits contract recipients without a Horizon call", async () => {
+  let called = false;
+  const records = await fetchRecentPayments(CONTRACT_RECIPIENT, {
+    horizonUrl: "https://horizon.example",
+    fetchImpl: async () => {
+      called = true;
+      return new Response("{}", { status: 200 });
+    },
+  });
+  assert.deepEqual(records, []);
+  assert.equal(called, false, "contracts are not Horizon accounts — no fetch");
+});
+
 test("deriveIntentState ladders through the steps", () => {
   assert.equal(
     deriveIntentState({ credentialVerified: false, payment: null }),

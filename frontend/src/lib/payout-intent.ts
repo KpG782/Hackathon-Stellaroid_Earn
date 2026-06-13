@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isValidRecipientAddress } from "./recipient-address.ts";
 
 if (typeof window !== "undefined") {
   throw new Error(
@@ -15,7 +16,10 @@ if (typeof window !== "undefined") {
 export type PayoutIntent = {
   /** 64-hex on-chain certificate hash that gates the payout. */
   credentialHash: string;
-  /** Graduate's own Stellar account that must receive the payment. */
+  /**
+   * Graduate's own payout destination: a classic Stellar account (G-address)
+   * or a Soroban smart-wallet contract (C-address, e.g. a passkey wallet).
+   */
   recipientAddress: string;
   /** Display-unit XLM amount with exactly 7 decimal places. */
   amountXlm: string;
@@ -24,7 +28,6 @@ export type PayoutIntent = {
 };
 
 const HASH_RE = /^[0-9a-f]{64}$/i;
-const ADDRESS_RE = /^G[A-Z2-7]{55}$/;
 const AMOUNT_RE = /^\d+\.\d{7}$/;
 
 const DEV_FALLBACK_SECRET = "stellaroid-dev-payout-intent-secret";
@@ -53,7 +56,10 @@ function validateIntent(value: unknown): PayoutIntent | null {
   if (typeof credentialHash !== "string" || !HASH_RE.test(credentialHash)) {
     return null;
   }
-  if (typeof recipientAddress !== "string" || !ADDRESS_RE.test(recipientAddress)) {
+  if (
+    typeof recipientAddress !== "string" ||
+    !isValidRecipientAddress(recipientAddress)
+  ) {
     return null;
   }
   if (
