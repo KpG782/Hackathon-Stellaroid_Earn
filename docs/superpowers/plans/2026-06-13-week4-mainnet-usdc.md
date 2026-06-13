@@ -1,0 +1,60 @@
+# Week 4 — Mainnet Activation + USDC Payouts — Plan
+
+> Spec: `docs/superpowers/specs/2026-06-12-apac-hackathon-phase-design.md` §5 (Pillar 3),
+> timeline §9 row "Week 4". Builds on Weeks 1–3 on `feat/pwa-shell`.
+
+**Goal:** the credential-gated payout loop pays **real USDC on mainnet**, and the demo arc
+(§10) closes: passkey wallet → mainnet credential → offline verify → **USDC payout detected
+live** → peso value. Non-custodial throughout; the app never holds or routes funds.
+
+Split into a testable-now part and an infra/contract-gated part.
+
+## Phase A — USDC payout asset  ✅ done (2026-06-13)
+
+Pure TypeScript + UI, fully tested in CI. The payout can be denominated in XLM or USDC,
+defaulting to USDC for the mainnet demo.
+
+- `payout-asset.ts` (new): `PayoutAsset = "XLM" | "USDC"`, `isPayoutAsset`,
+  `normalizePayoutAsset`, `PAYOUT_ASSETS` (USDC first = default), CoinGecko id map.
+- `payout-intent.ts`: intent token versioned with `asset` — **backward compatible**: legacy
+  tokens with no asset decode as XLM; a present-but-unknown asset is rejected as forged.
+- `config.ts`: `getUsdcIssuer()` — Circle's canonical USDC issuer per network
+  (testnet/mainnet), overridable via `NEXT_PUBLIC_USDC_ISSUER`.
+- `payment-detect.ts`: asset-aware matching — native for XLM, or a `credit_alphanum*` USDC
+  payment **from the configured issuer** (the issuer check blocks look-alike assets). Still
+  honest about contract recipients (Phase B / SAC events below).
+- `quote.ts`: `getQuote(asset, "PHP")` quotes USDC via CoinGecko `usd-coin` with a
+  per-asset cache; PDAX staging stays XLM-only.
+- UI: employer `payout-link-form` gains an asset selector (default USDC) and now accepts
+  passkey **C-addresses** (Week 3 gap closed); `/api/quote?asset=`, `FiatValue asset=`, and
+  the payout page render the chosen asset with a network-aware label (mainnet-ready).
+
+Tests (+14): asset matrix, intent versioning incl. legacy-token + forged-asset, USDC quote
++ cache isolation, USDC detection incl. look-alike-issuer rejection. Unit 138/138; build,
+e2e 17/17, PWA 3/3 green.
+
+## Phase B — SAC transfer-event detection (closes the passkey loop)  → next
+
+A USDC payment to a passkey **smart wallet (C-address)** is a Stellar Asset Contract
+`transfer`, not a classic Horizon payment, so Phase A's classic matcher (correctly) won't
+see it. Detect via Soroban RPC `getEvents` on the USDC SAC, filtered by topic
+`["transfer", *, <recipient>]`, decoding the i128 amount. This is what makes "employer pays
+the passkey wallet, page detects it live" work end-to-end. Fully testable with mocked
+`getEvents` responses (construct event XDR with stellar-sdk in the test). The
+`payment-detect.ts` contract-recipient guard is the seam.
+
+## Phase C — Mainnet activation  🔒 gated (maintainer + other repo)
+
+- **Contract `revoked` flag + issuer-only `revoke()`** — a one-way door that must land
+  **before** the mainnet contract deploy. Lives in the **separate contract repo**, not this
+  one; ship it there first.
+- Runbook + `docs/audit/` internal review (labeled internal, not an independent audit);
+  `/status` shows network + RPC provider; `ENABLE_MAINNET_PAYMENTS=false` kill switch;
+  funding checklist (XLM reserves + USDC) + spend caps in copy. Maintainer sets mainnet env
+  in Vercel; nothing mainnet is committed.
+- Demo with small real amounts; wallet-to-wallet only.
+
+## Gate (Phase A)
+
+`npm run lint && npm run test:unit && npm run build && npm run test:e2e &&
+npm run test:e2e:pwa` — all green; commit; push `feat/pwa-shell`.
