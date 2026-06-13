@@ -56,18 +56,34 @@ Tests (+8): decode (3- and 4-topic), reject non-transfer/failed/malformed, match
 SAC id per asset, stroops formatting, full `detectSacPayout` with an injected RPC. Unit
 146/146; build, e2e 17/17, PWA 3/3 green.
 
-## Phase C — Mainnet activation  🔒 gated (maintainer + other repo)
+## Phase C — Mainnet activation  ✅ in-repo work done (2026-06-13)
 
-- **Contract `revoked` flag + issuer-only `revoke()`** — a one-way door that must land
-  **before** the mainnet contract deploy. Lives in the **separate contract repo**, not this
-  one; ship it there first.
-- Runbook + `docs/audit/` internal review (labeled internal, not an independent audit);
-  `/status` shows network + RPC provider; `ENABLE_MAINNET_PAYMENTS=false` kill switch;
-  funding checklist (XLM reserves + USDC) + spend caps in copy. Maintainer sets mainnet env
-  in Vercel; nothing mainnet is committed.
-- Demo with small real amounts; wallet-to-wallet only.
+The app-side activation plumbing is built and tested; the remaining items are maintainer
+env + the other repo's contract change.
 
-## Gate (Phase A)
+- **`ENABLE_MAINNET_PAYMENTS` kill switch** — `config.ts` adds `isMainnet`,
+  `mainnetPaymentsEnabled`, `paymentsActive` (+ the pure `arePaymentsActive` rule).
+  `/api/payout-intent` returns 503 when paused. Read at request time → pause without
+  redeploy. Testnet is always active. Unit-tested.
+- **`/status` shows network + payments** — the health report gains `network` + a `payments`
+  check (mainnet on/off, kill-switch state); `/status` renders a "Network · …" row and the
+  network-aware contract card. The RPC provider was already surfaced.
+- **`docs/ops/mainnet-activation-runbook.md`** — env (incl. `RPC_PROVIDERS` failover list),
+  funding checklist (XLM reserves + USDC), activate/verify, and instant pause/rollback.
+- **`docs/audit/internal-security-review.md`** — internal review (explicitly **not** an
+  independent audit), covering the non-custodial model, secrets handling, payment-detection
+  issuer checks, the kill switch, passkey/offline surfaces, and web hardening. Satisfies the
+  M-2 tripwire as a maintainer decision.
+
+**Still gated (not in this repo):** the contract **`revoked` flag + issuer-only `revoke()`**
+— a one-way door in the **separate Soroban contract repo** that must be deployed to mainnet
+before activation. Plus maintainer steps: set mainnet env in Vercel, fund demo wallets with
+small amounts, flip `ENABLE_MAINNET_PAYMENTS=true`. See the runbook.
+
+Tests (+4 config): kill-switch matrix, env reading, testnet-default, USDC issuer validity.
+Unit 150/150; build, e2e 17/17, PWA 3/3 green.
+
+## Gate
 
 `npm run lint && npm run test:unit && npm run build && npm run test:e2e &&
 npm run test:e2e:pwa` — all green; commit; push `feat/pwa-shell`.
