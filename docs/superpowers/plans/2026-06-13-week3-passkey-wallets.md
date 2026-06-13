@@ -41,41 +41,62 @@ Tests added (10): strkey validators incl. SDK cross-validation; `classifyRecipie
 matrix; C-recipient intent round-trip + corrupted-checksum rejection; contract-recipient
 detection behavior. Unit suite 112/112.
 
-## Phase B — Passkey smart-wallet creation (graduate-only)  🔒 gated
+## Phase B — Passkey smart-wallet creation (graduate-only)  ✅ implemented (2026-06-13)
 
-**External gates (must clear before this is buildable-and-verifiable):**
-1. **Launchtube testnet token** — fee-sponsored submission so the graduate needs zero
-   XLM (`docs/ops/launchtube-request.md`, currently unchecked). Mainnet credits are the
-   Week-4 concern; testnet instance is open.
-2. **Deployed WebAuthn wallet-factory** — the secp256r1 smart-wallet contract
-   `passkey-kit` deploys against (testnet).
-3. **A real device** for WebAuthn — headless CI cannot exercise Face ID / fingerprint;
-   the spec's test strategy is "mock WebAuthn in unit tests; real device in e2e manual
-   checklist."
+Built against the **real** `passkey-kit@0.12.0` API (inspected from the installed types,
+not assumed). One correction to the original spec: v0.12 submits through an **OpenZeppelin
+Relayer** (`relayerUrl` + `relayerApiKey`, via `@openzeppelin/relayer-plugin-channels`),
+**not** the Launchtube JWT the spec named. The fee-sponsorship dependency is therefore a
+relayer endpoint; `docs/ops/launchtube-request.md` should be read as "provision a relayer."
 
-**Library reality (verified on npm, not assumed):** `passkey-kit@0.12.0` depends on
-`@stellar/stellar-sdk@^14` (this repo is on `^13` — they install nested, no forced app
-bump, but it is a second SDK copy), `@simplewebauthn/browser@^13`, `passkey-kit-sdk`,
-`sac-sdk`, `@openzeppelin/relayer-plugin-channels`. Implication: `passkey-kit` MUST be
-**dynamic-imported on the graduate wallet route only** and verified by the bundle
-analyzer to keep landing/proof routes at zero wallet bytes (P1-3 invariant). Server
-pieces (`PasskeyServer`, Launchtube JWT) stay server-only (Working Agreement rule 4).
+**Network-agnostic by env (testnet *and* mainnet from one codebase):**
+- `src/lib/passkey-config.ts` (client-safe): `getPasskeyClientConfig` / `passkeysEnabled`
+  — passkeys turn on when `NEXT_PUBLIC_PASSKEY_WALLET_WASM_HASH` is a valid 64-hex hash;
+  `NEXT_PUBLIC_ENABLE_PASSKEYS=false` force-disables. RPC + passphrase reuse `appConfig`.
+- `src/lib/passkey-server.ts` (server-only): `getPasskeyServerConfig` reads
+  `PASSKEY_RELAYER_URL` / `PASSKEY_RELAYER_API_KEY` / `PASSKEY_RELAYER_PLUGIN_ID`;
+  `submitDeployTransaction` submits the signed deploy XDR via the relayer's `ChannelsClient`
+  directly (so the server never loads passkey-kit's browser half / stellar-sdk-minimal).
+- The maintainer sets the network's values in Vercel; nothing network-specific is committed.
 
-**Build steps when gates clear:**
-- `src/lib/config.ts`: server-only `LAUNCHTUBE_URL`, `LAUNCHTUBE_JWT`, `PASSKEY_*` reads;
-  never `NEXT_PUBLIC_*`. A `passkeysEnabled` flag (default off → Freighter fallback).
-- `src/lib/passkey/` (client, dynamic-imported): wrap `PasskeyKit` — create wallet
-  (Face ID), connect existing, expose the wallet **contract address** as the payout
-  recipient. `src/lib/passkey/server.ts` (server-only): `PasskeyServer` + Launchtube send.
-- Graduate UI: a wallet-kind seam so the `/app` payout-recipient comes from Freighter (G)
-  *or* a passkey wallet (C). Employers/issuers keep `WalletConnectButton` (Freighter).
-- **Fallback (spec §11):** if a gate is unmet by Week 4, passkeys demo on testnet and the
-  mainnet payout recipient is a Freighter classic address, clearly badged. Phase A already
-  makes the recipient model accept whichever address the graduate ends up with.
+**Bundle isolation (P1-3), verified by the build:** `passkey-kit` (+ nested
+stellar-sdk@14) is reached ONLY through dynamic imports in `src/lib/passkey-wallet.ts`
+(client) and via `ChannelsClient` server-side. The `/app` panel (`PasskeyWalletPanel`) is
+`next/dynamic({ ssr:false })` and dynamic-imports the wallet lib inside its click
+handlers. Build confirms landing `/` (167 kB), `/proof/[hash]` (129 kB), and
+`credential.json` (104 kB) First-Load JS are **unchanged** — zero wallet bytes leaked.
 
-**Tests:** wallet-creation flow (mock WebAuthn unit; real device manual e2e checklist);
-recipient-address derivation (covered by Phase A's classifier); bundle-isolation check
-(analyzer asserts zero wallet bytes on landing/proof).
+**Two build fixes this required (next.config.ts):**
+- `transpilePackages: ["passkey-kit","passkey-kit-sdk","sac-sdk"]` — they ship raw TS entries.
+- A `webpack.IgnorePlugin` stubbing stellar-sdk@14's contract-bindings `require("../../package.json")` (a codegen-only path that resolves to a nonexistent `lib/package.json` under the bundler and never runs in-browser).
+
+**Flow:** graduate taps "Create passkey wallet" → WebAuthn registration + deploy tx built
+client-side (`createGraduateWallet`) → signed XDR POSTed to `/api/passkey/deploy` →
+relayer submits (zero XLM) → the wallet **contract address (C)** is shown as the payout
+recipient, which the payout loop already accepts (Phase A). `keyIdBase64` is persisted to
+`localStorage` for reconnect. Freighter stays the fallback whenever passkeys are off.
+
+**Tests:** orchestration (`createGraduateWallet`/`connectGraduateWallet`) with an injected
+fake kit — no library load, no authenticator; config resolution + flag matrix; relayer
+submit with an injected sender; XDR shape gate. Unit 124/124. The WebAuthn ceremony and a
+live relayer submission are device/infra-bound — see the manual checklist below.
+
+## Manual readiness checklist (per network — what's left to demo live)
+
+CI proves the code path compiles, isolates, and is correctly wired; these steps need real
+infra/device and are the same for testnet and mainnet (just different env values):
+
+1. Deploy the passkey-kit smart-wallet contract to the target network; set
+   `NEXT_PUBLIC_PASSKEY_WALLET_WASM_HASH` to its WASM hash (this flips passkeys ON).
+2. Provision an OZ Relayer (managed or self-hosted) for the network; set
+   `PASSKEY_RELAYER_URL` + `PASSKEY_RELAYER_API_KEY` (+ `PASSKEY_RELAYER_PLUGIN_ID=channels`
+   if self-hosted). Server-only in Vercel encrypted env.
+3. (Optional) Mercury indexer for cross-device reconnect — not required for same-device demo.
+4. On a real device (iOS 17+/Android Chrome), open `/app`: Create wallet → Face ID/finger →
+   confirm a C-address appears and `/api/passkey/deploy` returns a tx hash; verify the
+   wallet exists on-chain; use the address as a payout recipient end-to-end.
+5. Mainnet: repeat with mainnet env + small real amounts; kill switch is
+   `NEXT_PUBLIC_ENABLE_PASSKEYS=false`.
 
 ## Phase C — Payment detection for contract recipients  → Week 4
 
