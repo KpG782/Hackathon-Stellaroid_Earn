@@ -10,7 +10,8 @@
     "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/lib/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:pwa": "playwright test --config playwright.pwa.config.ts",
-    "ops:reconcile": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --env-file-if-exists=.env.local scripts/reconcile.ts"
+    "ops:reconcile": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --env-file-if-exists=.env.local scripts/reconcile.ts",
+    "ops:sign-credential": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --env-file-if-exists=.env.local scripts/sign-credential.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

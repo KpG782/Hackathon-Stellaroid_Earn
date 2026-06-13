@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildOpenBadgeCredential } from "./open-badge.ts";
+import {
+  buildOpenBadgeCredential,
+  buildSignableCredential,
+} from "./open-badge.ts";
+import { canonicalCredentialBytes } from "./credential-sign.ts";
+import type { SignedProofMetadata } from "./proof-metadata.ts";
 
 const HASH = "a".repeat(64);
 const OWNER = "GAWIOVGFSPJDEIJJZUSVRFPVP3D5VNO2LGCU47KEHJD6MV277QKNR34D";
@@ -69,7 +74,82 @@ test("golden shape for demo data", () => {
     "Stellar testnet deployment",
   ]);
   assert.equal(vc["https://stellaroid.tech/ns#network"], "testnet");
-  assert.ok(!("proof" in vc), "v1 omits the proof block (roadmap: eddsa cryptosuite)");
+  assert.ok(
+    !("proof" in vc),
+    "unsigned metadata omits the proof block (W3C eddsa cryptosuite stays roadmap)",
+  );
+});
+
+test("metadata with issuerSignature embeds the custom sep43 proof block", () => {
+  const issuerSignature = {
+    alg: "sep43-ed25519" as const,
+    sig: "c2lnbmF0dXJlLWJ5dGVz",
+    issuer: ISSUER,
+    signedAt: "2026-06-13T00:00:00.000Z",
+  };
+  const signedMetadata: SignedProofMetadata = {
+    ...baseInput.metadata,
+    issuerSignature,
+  };
+  const vc = buildOpenBadgeCredential({
+    ...baseInput,
+    metadata: signedMetadata,
+  });
+
+  assert.deepEqual(vc.proof, {
+    type: "StellarSep43Signature2026",
+    cryptosuite: "sep43-ed25519",
+    verificationMethod: ISSUER,
+    created: "2026-06-13T00:00:00.000Z",
+    proofValue: "c2lnbmF0dXJlLWJ5dGVz",
+  });
+
+  // Sign-then-attach: the proof block never changes the signed content.
+  const signable = buildSignableCredential(HASH, signedMetadata);
+  assert.ok(!("proof" in signable));
+  assert.ok(!("issuerSignature" in signable));
+  assert.deepEqual(
+    [...canonicalCredentialBytes(signable)],
+    [...canonicalCredentialBytes(buildSignableCredential(HASH, baseInput.metadata))],
+  );
+});
+
+test("buildSignableCredential mirrors the served credentialSubject content", () => {
+  const vc = buildOpenBadgeCredential(baseInput);
+  const signable = buildSignableCredential(HASH, baseInput.metadata);
+
+  assert.equal(signable["https://stellaroid.tech/ns#signableVersion"], 1);
+  assert.deepEqual(signable.type, [
+    "StellaroidSignableCredential",
+    "AchievementSubject",
+  ]);
+  assert.deepEqual(signable.identifier, vc.credentialSubject.identifier);
+
+  // Achievement content matches what credential.json serves, minus the
+  // deployment-specific URL id (signed bytes must be baseUrl-independent).
+  const servedAchievement: Record<string, unknown> = {
+    ...vc.credentialSubject.achievement,
+  };
+  delete servedAchievement.id;
+  assert.deepEqual(signable.achievement, servedAchievement);
+});
+
+test("buildSignableCredential is deterministic and hash-case-insensitive", () => {
+  const a = canonicalCredentialBytes(
+    buildSignableCredential(HASH, baseInput.metadata),
+  );
+  const b = canonicalCredentialBytes(
+    buildSignableCredential(HASH.toUpperCase(), {
+      // Different insertion order than baseInput.metadata.
+      evidence: [{ label: "About the demo", href: "/about" }],
+      skills: ["Soroban smart contracts", "Stellar testnet deployment"],
+      criteria: "Complete the assigned Soroban contract and deploy to testnet.",
+      cohort: "Stellar PH Bootcamp 2026",
+      description: "Awarded after shipping a working Soroban contract.",
+      title: "Stellar Smart Contract Bootcamp Completion",
+    }),
+  );
+  assert.deepEqual([...a], [...b]);
 });
 
 test("required fields survive null metadata and issuerInfo", () => {

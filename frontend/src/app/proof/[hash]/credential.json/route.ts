@@ -1,6 +1,15 @@
 // Open Badges 3.0 / W3C VC 2.0 view of a proof. Same cache and hash-gate
 // policy as the proof page: 60 s CDN revalidate, instant 404 for malformed
 // hashes with no RPC call.
+//
+// When the proof metadata carries an `issuerSignature` (see
+// scripts/sign-credential.ts), buildOpenBadgeCredential embeds a custom
+// `proof` block (StellarSep43Signature2026 / sep43-ed25519): an ed25519
+// signature by the issuer's Stellar key over the canonical
+// buildSignableCredential output — sign-then-attach, so the signed bytes
+// never include the proof block. Offline verifiers recompute those bytes
+// from the carried credential; this is NOT a W3C Data Integrity cryptosuite
+// (eddsa-jcs-2022 is roadmap).
 export const revalidate = 60;
 
 import { NextResponse } from "next/server";
