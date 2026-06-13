@@ -47,6 +47,18 @@ export type PayoutIntentState =
   | "credential_verified"
   | "payment_detected";
 
+/**
+ * Normalized "a payment satisfied the intent" result, shared by the classic
+ * Horizon path (G-recipients) and the SAC transfer-event path (contract
+ * recipients — see sac-events.ts), so the payout page renders both uniformly.
+ */
+export type DetectedPayment = {
+  /** Display-unit amount received (in the intent's asset). */
+  amount: string;
+  /** On-chain transaction hash for the evidence link. */
+  transactionHash: string;
+};
+
 export type FetchPaymentsOptions = {
   horizonUrl?: string;
   fetchImpl?: typeof fetch;
@@ -61,7 +73,8 @@ export function getHorizonUrl(): string {
   return process.env.HORIZON_URL?.trim() || DEFAULT_HORIZON_URL;
 }
 
-function toStroops(amount: string): bigint {
+/** Display-unit amount string ("25.0000000") → integer stroops (7 decimals). */
+export function toStroops(amount: string): bigint {
   const [whole = "0", fraction = ""] = amount.split(".");
   return BigInt(whole) * 10_000_000n + BigInt(fraction.padEnd(7, "0").slice(0, 7));
 }
@@ -109,7 +122,7 @@ export function deriveIntentState({
   payment,
 }: {
   credentialVerified: boolean;
-  payment: HorizonPaymentRecord | null;
+  payment: DetectedPayment | HorizonPaymentRecord | null;
 }): PayoutIntentState {
   if (!credentialVerified) return "intent_created";
   if (!payment) return "credential_verified";

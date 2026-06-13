@@ -15,9 +15,11 @@ import {
   deriveIntentState,
   fetchRecentPayments,
   matchPayment,
-  type HorizonPaymentRecord,
+  type DetectedPayment,
   type PayoutIntentState,
 } from "@/lib/payment-detect";
+import { classifyRecipient } from "@/lib/recipient-address";
+import { detectSacPayout } from "@/lib/sac-events";
 import { Badge } from "@/components/ui/badge";
 import { FiatValue } from "@/components/ui/fiat-value";
 import { PaymentPoller } from "@/components/payout/payment-poller";
@@ -147,11 +149,20 @@ export default async function PayoutPage({ params }: PageProps) {
       lookupFailed = true;
     }
 
-    let payment: HorizonPaymentRecord | null = null;
+    let payment: DetectedPayment | null = null;
     if (credentialVerified) {
       try {
-        const records = await fetchRecentPayments(intent.recipientAddress);
-        payment = matchPayment(records, intent);
+        if (classifyRecipient(intent.recipientAddress) === "contract") {
+          // Smart-wallet (passkey) recipient: the payment arrives as a SAC
+          // transfer event, not a classic Horizon payment.
+          payment = await detectSacPayout(intent);
+        } else {
+          const records = await fetchRecentPayments(intent.recipientAddress);
+          const record = matchPayment(records, intent);
+          payment = record
+            ? { amount: record.amount, transactionHash: record.transaction_hash }
+            : null;
+        }
       } catch {
         payment = null;
       }
@@ -162,7 +173,7 @@ export default async function PayoutPage({ params }: PageProps) {
       payment,
     });
     const txUrl = payment
-      ? `${appConfig.explorerUrl}/tx/${payment.transaction_hash}`
+      ? `${appConfig.explorerUrl}/tx/${payment.transactionHash}`
       : null;
     const networkLabel = getExpectedNetworkLabel();
 
