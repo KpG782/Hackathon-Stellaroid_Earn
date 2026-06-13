@@ -33,15 +33,28 @@ Tests (+14): asset matrix, intent versioning incl. legacy-token + forged-asset, 
 + cache isolation, USDC detection incl. look-alike-issuer rejection. Unit 138/138; build,
 e2e 17/17, PWA 3/3 green.
 
-## Phase B — SAC transfer-event detection (closes the passkey loop)  → next
+## Phase B — SAC transfer-event detection (closes the passkey loop)  ✅ done (2026-06-13)
 
 A USDC payment to a passkey **smart wallet (C-address)** is a Stellar Asset Contract
 `transfer`, not a classic Horizon payment, so Phase A's classic matcher (correctly) won't
-see it. Detect via Soroban RPC `getEvents` on the USDC SAC, filtered by topic
-`["transfer", *, <recipient>]`, decoding the i128 amount. This is what makes "employer pays
-the passkey wallet, page detects it live" work end-to-end. Fully testable with mocked
-`getEvents` responses (construct event XDR with stellar-sdk in the test). The
-`payment-detect.ts` contract-recipient guard is the seam.
+see it. Now detected via Soroban RPC `getEvents`:
+
+- `sac-events.ts` (server-only): `sacContractIdForAsset` derives the asset's SAC contract
+  (`Asset.contractId(passphrase)`), `getEvents` is queried with a `transfer`-to-recipient
+  topic filter (both the 3-topic and 4-topic SAC shapes), and each event is decoded via
+  `scValToNative` into `{ to, amountStroops }`. `findSacTransfer` applies the same
+  recipient/time/amount rules as the classic matcher. Result is normalized to the shared
+  `DetectedPayment` shape.
+- The payout page dispatches on recipient kind: `classifyRecipient(...) === "contract"` →
+  `detectSacPayout` (SAC events); otherwise the classic Horizon path. Both render
+  identically.
+- Decode + match are pure and the RPC is injected, so the whole path is unit-tested
+  (real `transfer` ScVals built with stellar-sdk; look-alike/underpay/old/failed-call
+  rejection). The live demo still needs a real USDC transfer on the target network.
+
+Tests (+8): decode (3- and 4-topic), reject non-transfer/failed/malformed, match rules,
+SAC id per asset, stroops formatting, full `detectSacPayout` with an injected RPC. Unit
+146/146; build, e2e 17/17, PWA 3/3 green.
 
 ## Phase C — Mainnet activation  🔒 gated (maintainer + other repo)
 
