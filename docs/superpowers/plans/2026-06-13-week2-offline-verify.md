@@ -68,8 +68,17 @@ Existing system: dark slate bg, gold primary `#F59E0B` (trust), purple accent, O
 
 ## Integration checklist (central, after agents return)
 
-- [ ] Review each agent summary; check cross-workstream type/import consistency
-- [ ] `npm run lint && npm run test:unit && npm run build && npm run test:e2e && npm run test:e2e:pwa` all green
-- [ ] Sign demo credential metadata via `scripts/sign-credential.ts` (CLI key) so `/verify` is demoable
-- [ ] Commit per workstream; push `feat/pwa-shell`
-- [ ] Follow-ups recorded: Freighter `signMessage` in the live issuer flow (Week 2.5); validate SEP-43 construction against real Freighter output; Web NFC flourish (Week 5)
+- [x] Review each agent summary; check cross-workstream type/import consistency
+- [x] `npm run lint && npm run test:unit && npm run build && npm run test:e2e && npm run test:e2e:pwa` all green
+- [~] Sign demo credential metadata via `scripts/sign-credential.ts` (CLI key) so `/verify` is demoable — *deferred to deploy-time:* needs `DEMO_ISSUER_SECRET` + the live on-chain cert lookup, neither available in CI. The crypto path is proven by unit tests and the e2e (`verify-offline.spec.ts` signs with a throwaway key and the UI rejects it as an unregistered issuer). Live demo prep: run `npm run ops:sign-credential -- <hash>`, paste the printed `issuerSignature` block into `PROOF_METADATA` in `src/lib/proof-metadata.ts`.
+- [x] Commit per workstream; push `feat/pwa-shell`
+- [x] Follow-ups recorded: Freighter `signMessage` in the live issuer flow (Week 2.5); validate SEP-43 construction against real Freighter output; Web NFC flourish (Week 5)
+
+## Execution log (2026-06-13)
+
+Three subagents dispatched in parallel; all returned. Central integration reviewed each cross-workstream boundary (A's `decodeOfflinePayload` error codes / `verifyCredentialSignature` / `lookupIssuer` against B's `verify-result.tsx`; `shortenAddress(addr, 6)` and the `@noble/ed25519` v3.1 async API both confirmed present) and ran the full gate. Two integration fixes were needed, both genuine rather than cosmetic:
+
+1. **Strict-mode + a11y collision (B).** Chromium exposes `<input type="file">` with role `button`, so the hidden upload input (`aria-label="Upload QR image"`) and the visible trigger button (text "Upload QR image") shared an accessible name — ambiguous to the e2e `getByRole` query *and* to assistive tech. Gave the input a distinct label (`"QR image file"`) and updated the spec.
+2. **PWA offline-fallback flake (C-induced).** Adding `/verify` to the precache manifest enlarged the install set, delaying `clientsClaim` past `pwa.spec.ts`'s fixed-point reload; the offline navigation then raced SW control intermittently. Added an explicit `waitForFunction(() => navigator.serviceWorker.controller)` gate — stable across 3 consecutive runs.
+
+Also un-fixme'd the `/verify` resolves-200 header test now that the page landed. Final gates green: lint, unit 102/102, build (24 routes, `/verify` at 176 kB first-load, no stellar-sdk in client chunks), dev e2e 17/17, PWA e2e 3/3.
