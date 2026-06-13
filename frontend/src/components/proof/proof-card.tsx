@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { ShareButtons } from "./share-buttons";
 import { ProofQrBlock } from "./proof-qr-block";
+import { OfflineQrBlock } from "./offline-qr-block";
 import { HashReveal } from "@/components/ui/hash-reveal";
 import { CredentialMetadataPanel } from "./credential-metadata-panel";
 import { IssuerTrustCard } from "./issuer-trust-card";
@@ -272,6 +273,8 @@ export function ProofCard({
             aria-label="How to verify"
           >
             <ProofQrBlock hash={hash} />
+            {/* Renders only when metadata carries an issuerSignature. */}
+            <OfflineQrBlock hash={hash} metadata={proofMetadata ?? null} />
             <div className="flex items-center gap-3 flex-wrap">
               <a
                 href={`${explorerUrl}/contract/${contractId}#events`}
